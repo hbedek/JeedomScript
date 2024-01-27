@@ -32,7 +32,8 @@ class userFunction
         $voletParametrePresence,
         $voletParametreNuit,
         $voletParametreAzimuth
-   ) {
+        )
+    {
         $nom_volet = $voletParametreDefaut->nomVolet;
         $cmdPositionVoletEtatStr = $voletParametreDefaut->cmdPositionVoletEtatStr;
         $cmdPositionVoletActionStr = $voletParametreDefaut->cmdPositionVoletActionStr;
@@ -77,19 +78,25 @@ class userFunction
             }
         }
         if ($voletParametreAzimuth != null) {
+            $forceAzimuth = false;
+            if ($voletParametreAzimuth->forceAzimuth == 1) {
+                $forceAzimuth = true;
+            }
             $cmd_azimuth_soleil = cmd::byString($voletParametreAzimuth->cmdAzimuthSoleilStr);
             $cmd_pourcentage_nuage = cmd::byString($voletParametreAzimuth->cmdCouvertureNuageuseStr);
             $cmd_elevation_soleil = cmd::byString($voletParametreAzimuth->cmdElevationSoleilStr);
             $cmd_temperature_max_jour = cmd::byString($voletParametreAzimuth->cmdTempMaxJourStr);
             $temps_max = $cmd_temperature_max_jour->execCmd();
-            if ($temps_max < $voletParametreAzimuth->tempMinActivation) {
-                if ($etat_volet != $voletParametreDefaut->positionVoletOuvert) {
-                    $options = array('slider' => $voletParametreDefaut->positionVoletOuvert);
-                    $cmd_position_volet_action->execCmd($options, $cache = 0);
-                    return 'Température max inférieure au minimum application état ouvert';
-                }
-                else {
-                    return 'Etat déjà appliqué température max inférieure au minimum';
+            if (!$forceAzimuth) {
+                if ($temps_max < $voletParametreAzimuth->tempMinActivation) {
+                    if ($etat_volet != $voletParametreDefaut->positionVoletOuvert) {
+                        $options = array('slider' => $voletParametreDefaut->positionVoletOuvert);
+                        $cmd_position_volet_action->execCmd($options, $cache = 0);
+                        return 'Température max inférieure au minimum application état ouvert';
+                    }
+                    else {
+                        return 'Etat déjà appliqué température max inférieure au minimum';
+                    }
                 }
             }
 
@@ -104,27 +111,37 @@ class userFunction
                     $options = array('slider' => $voletParametreDefaut->positionVoletOuvert);
                     $cmd_position_volet_action->execCmd($options, $cache = 0);
                     return 'Soleil hors fenêtre application état ouvert';
-                } else {
+                }
+                else {
                     return 'Etat ouvert déjà appliqué soleil hors fenêtre';
                 }
             }
 
             $nuage = $cmd_pourcentage_nuage->execCmd();
-            if ($nuage >= $voletParametreAzimuth->pourcentageNuageMax) {
-                if ($etat_volet != $voletParametreDefaut->positionVoletOuvert) {
-                    $options = array('slider' => $voletParametreDefaut->positionVoletOuvert);
-                    $cmd_position_volet_action->execCmd($options, $cache = 0);
-                    return 'Couverture nuageuse supérieure application état ouvert';
-                } else {
-                    return 'Etat ouvert déjà appliqué couverture nuageuse';
+            if (!$forceAzimuth) {
+                if ($nuage >= $voletParametreAzimuth->pourcentageNuageMax) {
+                    if ($etat_volet != $voletParametreDefaut->positionVoletOuvert) {
+                        $options = array('slider' => $voletParametreDefaut->positionVoletOuvert);
+                        $cmd_position_volet_action->execCmd($options, $cache = 0);
+                        return 'Couverture nuageuse supérieure application état ouvert';
+                    }
+                    else {
+                        return 'Etat ouvert déjà appliqué couverture nuageuse';
+                    }
                 }
             }
 
             $percent = round(max(min(100 * ($hauteur / $voletParametreAzimuth->tailleFen), $voletParametreDefaut->positionVoletOuvert), round(100 * ($voletParametreAzimuth->hauteurEncombrement / $voletParametreAzimuth->tailleFen))));
+            if ($percent == 0) {
+                $percentToApply = 0;
+            }
+            else {
+                $percentToApply = ($percent / 100) * ($voletParametreDefaut->positionVoletOuvert - $voletParametreAzimuth->positionVoletBas) + $voletParametreAzimuth->positionVoletBas;
+            }
             if ($etat_volet != $percent) {
-                $options = array('slider' => $percent);
+                $options = array('slider' => $percentToApply);
                 $cmd_position_volet_action->execCmd($options, $cache = 0);
-                return 'Application etat ensoleillement sur volet ' . $percent;
+                return 'Application etat ensoleillement sur volet ' . $percentToApply;
             }
         }
         else {
@@ -165,6 +182,7 @@ class VoletParametresNuit
 
 class VoletParametresAzimuth
 {
+    public $positionVoletBas;
     public $cmdAzimuthSoleilStr;
     public $cmdTempMaxJourStr;
     public $cmdCouvertureNuageuseStr;
@@ -176,4 +194,5 @@ class VoletParametresAzimuth
     public $pourcentageNuageMax;
     public $tempMinActivation;
     public $angleVision;
+    public $forceAzimuth;
 }
